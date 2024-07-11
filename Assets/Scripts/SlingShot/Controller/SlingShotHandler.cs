@@ -1,31 +1,31 @@
 using System;
 using System.Collections;
-using SlingShot.Controller;
 using UnityEngine;
 using UnityEngine.Pool;
 
 [RequireComponent(typeof(SlingShotLineRender))]
 public class SlingShotHandler : MonoBehaviour
 {
-    
+    [Header("Line")] 
+    [SerializeField] private GameObject idleStrip;
 
     [Header("Transform")] 
     [SerializeField] private Transform centerPosition;
-    [SerializeField] private Transform idlePosition; // 라인랜더러스크립트에 추가함
+    [SerializeField] private Transform idlePosition;
 
     [Header("SlingShot Stat")] 
     [SerializeField] private float maxDistance = 2f;
-    [SerializeField] private float shotForce = 10f;//fd
-    [SerializeField] private float timeForBirdRespawn = 2.0f;//fd
+
+    [SerializeField] private float shotForce = 10f;
+    [SerializeField] private float timeForBirdRespawn = 2.0f;
 
     [Header("Scripts")] 
     [SerializeField] private SlingShotArea slingShotArea;
-    [SerializeField] private Trajectory trajectory;//fd
+    [SerializeField] private Trajectory trajectory;
 
     [Header("Bird")] 
     [SerializeField] private AngryBird angryBirdPrefab;
-    [SerializeField] private float angryBirdPositionOffset = 0.25f;//fd
-    
+    [SerializeField] private float angryBirdPositionOffset = 0.25f;
 
     // Data
     private SlingshotData slingshotData;
@@ -36,30 +36,28 @@ public class SlingShotHandler : MonoBehaviour
     // View
     private SlingShotLineRender shotLineRender;
     
-    // controller
-    private BirdFIreController birdFIreController;
-    
     
     
     //Position Stat
-    private Vector2 direction; //fd
+
+    private Vector2 direction;
     private Vector2 directionNormalized;
 
     //For Bird Fire
-    private bool clickedWithinArea; //fd
-    private bool birdOnSlingShot; //fd
-    private bool isDestroying; //fd
+    private bool clickedWithinArea;
+    private bool birdOnSlingShot;
+    private bool isDestroying;
 
     //For Object Pool
-    private AngryBird angryBirdInstance;//fd
-    private IObjectPool<AngryBird> pool; //fd
+    private AngryBird angryBirdInstance;
+    private IObjectPool<AngryBird> pool;
 
 
     // flow
     private void Awake()
     {
         Initialize();
-        
+        SpawnAngryBird();
     }
 
     private void Update()
@@ -86,7 +84,7 @@ public class SlingShotHandler : MonoBehaviour
         // 마우스에서 손 땔 때
         if (inputService.IsFireButtonUp() && !angryBirdInstance.IsReleased)
         {
-            birdFIreController.BirdFire();
+            BirdFire();
             slingshotData.ResetSlingShotLinePosition(idlePosition.position);
         }
     }
@@ -99,24 +97,11 @@ public class SlingShotHandler : MonoBehaviour
         slingshotData = new SlingshotData();
         
         shotLineRender = GetComponent<SlingShotLineRender>();
-        if (shotLineRender == null)
-        {
-            Debug.LogError("SlingShotLineRender 컴포넌트를 찾을 수 없습니다.");
-            return;
-        }
         shotLineRender.InitializeLineRender();
-        
-        birdFIreController = GetComponent<BirdFIreController>();
-        if (birdFIreController == null)
-        {
-            Debug.LogError("BirdFIreController 컴포넌트를 찾을 수 없습니다.");
-            return;
-        }
         
         InitializeData();
         InitializePool();
         
-        birdFIreController.SpawnAngryBird();
         SetStrip(false);
     }
 
@@ -128,7 +113,7 @@ public class SlingShotHandler : MonoBehaviour
 
     private void InitializeData()
     {
-        slingshotData.SlingShotLinePosition = slingshotData.IdleStrip.position;
+        slingshotData.SlingShotLinePosition = idlePosition.position;
         slingshotData.LeftStartPosition = transform.Find("StripTransform").Find("StripStartL");
         slingshotData.RightStartPosition = transform.Find("StripTransform").Find("StripStartR");
     }
@@ -137,39 +122,39 @@ public class SlingShotHandler : MonoBehaviour
     // Setter
     private void SetStrip(bool isActive)
     {
-        shotLineRender.idleStrip.SetActive(isActive);
+        idleStrip.SetActive(isActive);
     }
 
     
     
     // ---- 수정 해야 할 친구들
 
-    // private void BirdFire()
-    // {
-    //     if (GameManager.gmInstance.CheckBirdNumber())
-    //     {
-    //         clickedWithinArea = false; // controller
-    //
-    //         angryBirdInstance.LaunchBird(direction, shotForce); // service
-    //
-    //         GameManager.gmInstance.UseShot(); // service
-    //
-    //         birdOnSlingShot = false; // controller
-    //          
-    //         shotLineRender.SetLeftLineRender(false);//  service
-    //         shotLineRender.SetRightLineRender(false);// service
-    //         
-    //         SetStrip(true); // service
-    //
-    //         //궤적 제거
-    //         trajectory.ClearPoints(); // service
-    //
-    //         if (GameManager.gmInstance.CheckBirdNumber())
-    //         {
-    //             StartCoroutine(SpawnAngryBirdAfterTime(angryBirdInstance, timeForBirdRespawn)); // controller
-    //         }
-    //     }
-    // }
+    private void BirdFire()
+    {
+        if (GameManager.gmInstance.CheckBirdNumber())
+        {
+            clickedWithinArea = false;
+
+            angryBirdInstance.LaunchBird(direction, shotForce);
+
+            GameManager.gmInstance.UseShot();
+
+            birdOnSlingShot = false;
+            
+            shotLineRender.SetLeftLineRender(false);
+            shotLineRender.SetRightLineRender(false);
+            
+            SetStrip(true);
+
+            //궤적 제거
+            trajectory.ClearPoints();
+
+            if (GameManager.gmInstance.CheckBirdNumber())
+            {
+                StartCoroutine(SpawnAngryBirdAfterTime(angryBirdInstance, timeForBirdRespawn));
+            }
+        }
+    }
 
     #region SlingShot Methods
 
@@ -203,27 +188,28 @@ public class SlingShotHandler : MonoBehaviour
         angryBirdInstance.transform.right = directionNormalized;
     }
 
-    // private IEnumerator SpawnAngryBirdAfterTime(AngryBird bird, float time)
-    // {
-    //     isDestroying = true;
-    //     yield return new WaitForSeconds(time);
-    //     isDestroying = false;
-    //     SpawnAngryBird();
-    // }
+    private IEnumerator SpawnAngryBirdAfterTime(AngryBird bird, float time)
+    {
+        isDestroying = true;
+        yield return new WaitForSeconds(time);
+        isDestroying = false;
+        SpawnAngryBird();
+        //CreatBird();
+    }
 
-    // private void SpawnAngryBird()
-    // {
-    //     if (!isDestroying)
-    //     {
-    //         var position = idlePosition.position;
-    //         Vector2 dir = (centerPosition.position - position).normalized;
-    //
-    //         angryBirdInstance = pool.Get(); // 새를 풀에서 가져옴
-    //         angryBirdInstance.Reset();
-    //         angryBirdInstance.transform.position = (Vector2)position + dir * angryBirdPositionOffset;
-    //         birdOnSlingShot = true;
-    //     }
-    // }
+    private void SpawnAngryBird()
+    {
+        if (!isDestroying)
+        {
+            var position = idlePosition.position;
+            Vector2 dir = (centerPosition.position - position).normalized;
+
+            angryBirdInstance = pool.Get(); // 새를 풀에서 가져옴
+            angryBirdInstance.Reset();
+            angryBirdInstance.transform.position = (Vector2)position + dir * angryBirdPositionOffset;
+            birdOnSlingShot = true;
+        }
+    }
 
     #endregion
 
